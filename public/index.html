@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wholesaler Pricing Comparison</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <strong>Wholesaler Pricing Compare</strong>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-view="compare">Compare</button>
+      <button class="tab" data-view="wholesalers">Wholesalers</button>
+    </nav>
+    <div class="account" id="account-area">
+      <button id="signin-btn" class="ghost">Sign in</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- COMPARE VIEW -->
+    <section id="view-compare" class="view active">
+      <div class="search-bar">
+        <input id="search-input" type="text" placeholder="Search products (e.g. 'drill', 'bolt', 'safety')..." />
+        <button id="search-btn" class="primary">Search</button>
+      </div>
+
+      <div id="status-banner" class="banner hidden"></div>
+
+      <div id="results"></div>
+    </section>
+
+    <!-- WHOLESALERS VIEW -->
+    <section id="view-wholesalers" class="view">
+      <h2>Wholesaler connections</h2>
+      <p class="muted">
+        Public catalogs are always included. Connect a login-gated wholesaler
+        once and your trade-account pricing is included automatically in every
+        search. Credentials are encrypted at rest (AES-256-GCM).
+      </p>
+      <div id="wholesaler-list"></div>
+    </section>
+  </main>
+
+  <!-- Sign-in modal -->
+  <div id="signin-modal" class="modal hidden">
+    <div class="modal-card">
+      <h3>Sign in</h3>
+      <p class="muted">Enter your email to start. Accounts are created on first use.</p>
+      <form id="signin-form">
+        <label>Email
+          <input type="email" name="email" required placeholder="you@example.com" />
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="ghost" data-close>Cancel</button>
+          <button type="submit" class="primary">Continue</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Connect-credentials modal -->
+  <div id="connect-modal" class="modal hidden">
+    <div class="modal-card">
+      <h3 id="connect-title">Connect wholesaler</h3>
+      <p class="muted" id="connect-subtitle"></p>
+      <form id="connect-form">
+        <div id="connect-fields"></div>
+        <div id="connect-error" class="error hidden"></div>
+        <div class="modal-actions">
+          <button type="button" class="ghost" data-close>Cancel</button>
+          <button type="submit" class="primary">Verify & save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
