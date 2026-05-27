@@ -1,29 +1,23 @@
-# Betting Trend Spotter
+# Betting Trend Predictor
 
-A small Flask app that pulls live markets from **Kalshi** and **Polymarket** and surfaces the ones that are *standing out* — markets where a meaningful price move is being backed by real trading volume.
+A live dashboard that watches Kalshi and Polymarket for **markets about to move** — not markets that already moved. Each market is scored on four pre-move signals drawn from order-flow microstructure and cross-platform arbitrage. The same feature vector is logged to SQLite so you can train a real ML model on it later.
 
-The idea: when informed traders start pricing in new information, the market moves before the news does. This app ranks every active market by a combined "standout score" so you can quickly see what's catching a bid.
+## What it does
 
-## What the score means
+For every active market on both platforms, the app computes:
 
-For each market we compute:
+| Signal | What it measures | Why it's predictive |
+| --- | --- | --- |
+| **Order-book imbalance** | Top-5 bid size vs ask size on the YES book | Money already lined up to push price one way before any trade prints |
+| **Volume acceleration** | 24h volume as a share of lifetime volume | Money flowing in lately — sign of news or accumulation |
+| **Momentum acceleration** | Last-hour move vs trailing 24h hourly average | A trend that's speeding up, not coasting |
+| **Cross-platform divergence** | Same event priced X¢ apart on Kalshi vs Polymarket | Laggard tends to converge to leader within hours |
 
-```
-score = |24h price change|  ×  log10(24h volume + 10)  ×  momentum
-```
+The signals are clipped, weighted, and summed into a **pre-move score** in `[0, 1]` and a **direction** in `[-1, +1]` (negative = down bias, positive = up bias). The score's contributors are exposed per market so you can see *which* signal is driving the rank.
 
-- **24h price change** — the core signal: how much the market re-priced today.
-- **24h volume** — log-scaled, so $1M moves matter more than $1K moves without one whale market dominating the leaderboard.
-- **Momentum** — boost (×1.4) if the last hour is moving the same direction as the last 24h, discount (×0.7) if the move is reversing. Only applies when 1h data is available (Polymarket).
+## What it doesn't do
 
-A signal badge labels each market by 24h move size:
-
-| Badge | 24h move |
-| --- | --- |
-| `Quiet` | < 2% |
-| `Slight` | 2–5% |
-| `Moving` | 5–15% |
-| `Major move` | ≥ 15% |
+This is a **heuristic predictor**, not a backtested ML model. The weights are starting points calibrated from microstructure intuition, not empirical accuracy on historical data. To get to a real ML model, see [`ml/README.md`](ml/README.md) — the app logs every snapshot to SQLite so you can label future moves and train from your own data.
 
 ## Running it
 
@@ -32,16 +26,22 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Then open <http://127.0.0.1:5050>.
+Open <http://127.0.0.1:5050>.
 
-The dashboard auto-refreshes every minute. Server-side, the upstream APIs are cached for 60 seconds to stay polite.
+Optional env vars:
+- `SNAPSHOT_DB=/path/to/file.db` — where to log snapshots (default `./snapshots.db`, use `:memory:` to disable)
 
-### Filters
+## Filters
 
-- **Platform** — Kalshi, Polymarket, or both
-- **Min 24h Volume** — hides illiquid markets where moves are just noise
-- **Min 24h Move (%)** — hides flat markets
-- **Show** — Top 25 / 50 / 100
+- **Platform**: Kalshi / Polymarket / both
+- **Direction**: Up bias / Down bias / Any
+- **Min 24h Volume**: filter out illiquid markets
+- **Min Pre-Move Score**: floor on the signal strength
+
+## API endpoints
+
+- `GET /api/predictions?platform=&direction=&min_vol=&min_score=&limit=` — ranked predictions JSON
+- `GET /api/snapshots/stats` — count & timespan of logged snapshots
 
 ## Tests
 
@@ -49,25 +49,30 @@ The dashboard auto-refreshes every minute. Server-side, the upstream APIs are ca
 python -m unittest discover -s tests
 ```
 
-The tests cover the scoring math and the per-platform schema normalizers, so they run fully offline.
+Tests cover feature extraction, predictor scoring + direction, fuzzy pairing, Kalshi orderbook conversion, Polymarket token-id extraction, and the snapshot SQLite logger — all offline.
 
 ## Project layout
 
 ```
 .
-├── app.py                  # Flask app + /api/trends endpoint
+├── app.py                  # Flask app, orchestration
 ├── clients/
-│   ├── kalshi.py           # Kalshi /markets fetcher + normalizer
-│   └── polymarket.py       # Polymarket Gamma API fetcher + normalizer
-├── trends.py               # standout score, signal classifier, explanation text
-├── templates/index.html    # dashboard
-├── static/                 # JS + CSS
-├── tests/test_trends.py
+│   ├── kalshi.py           # /markets + /orderbook
+│   └── polymarket.py       # gamma /markets + clob /book + tokenId extraction
+├── features.py             # feature vector per market
+├── pairing.py              # fuzzy cross-platform title match
+├── predictor.py            # heuristic score + direction + signal contribs
+├── snapshots.py            # SQLite logger for future ML training
+├── ml/README.md            # how to train a real model from logged data
+├── templates/index.html
+├── static/                 # app.js + style.css
+├── tests/test_predictor.py
 └── requirements.txt
 ```
 
-## Notes & caveats
+## Important caveats
 
-- Kalshi's `/markets` list exposes `previous_yes_bid` as the closest 24h baseline — for sub-day resolution you'd need to pull candlesticks per ticker.
-- Polymarket exposes `oneDayPriceChange` and `oneHourPriceChange` directly, so momentum scoring is richer there.
-- Both APIs are public/read-only here. No keys, no orders are placed, no trades are made. This is a research tool, not investment advice.
+- **Heuristic, not trained.** Signal weights are educated guesses, not optimized.
+- **Order books only fetched for top-30 by volume per platform** to keep API usage reasonable. Tail markets won't have an imbalance signal.
+- **Cross-platform pairing is title-based fuzzy matching.** It catches obvious pairs (rate decisions, elections, sports) but misses paraphrased titles. Inspect the "paired with" line on each card to sanity-check matches.
+- **Not investment advice.** Pre-move signals raise probabilities; they don't guarantee outcomes. Markets can stay irrational longer than your bankroll can stay solvent.

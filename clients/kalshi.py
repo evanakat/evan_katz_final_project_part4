@@ -1,9 +1,11 @@
 """Kalshi public API client.
 
-Kalshi exposes an unauthenticated read endpoint at
-https://api.elections.kalshi.com/trade-api/v2/markets. Prices are returned
-in cents (0-100); we convert to dollars (0-1) so both platforms share a
-schema.
+Exposes two read endpoints:
+  - GET /markets               — list of open markets (cents-denominated prices)
+  - GET /markets/{ticker}/orderbook — full L2 depth, split into YES / NO sides
+
+The orderbook converter folds Kalshi's NO side into "asks on YES" so both
+platforms expose a common bid/ask book to the feature extractor.
 """
 from __future__ import annotations
 
@@ -36,6 +38,49 @@ async def fetch_markets(limit: int = 500) -> list[dict[str, Any]]:
     return markets
 
 
+async def fetch_orderbook(ticker: str, client: httpx.AsyncClient) -> dict[str, Any] | None:
+    """Fetch the orderbook for a single Kalshi market, converted to YES-side bids/asks."""
+    try:
+        resp = await client.get(f"{KALSHI_BASE}/markets/{ticker}/orderbook")
+        if resp.status_code != 200:
+            return None
+        payload = resp.json() or {}
+    except Exception:
+        return None
+    return _convert_orderbook(payload.get("orderbook") or {})
+
+
+def _convert_orderbook(book: dict[str, Any]) -> dict[str, Any]:
+    """Kalshi exposes two sides: YES bids (buyers of YES) and NO bids (buyers of NO).
+
+    A NO bid at price P cents is economically a YES ask at (100 - P) cents,
+    same size. We rebuild a unified YES-side book so both platforms share a
+    schema.
+    """
+    yes_side = book.get("yes") or []
+    no_side = book.get("no") or []
+
+    bids: list[dict[str, float]] = []
+    for entry in yes_side:
+        try:
+            price_c, size = entry[0], entry[1]
+        except (TypeError, IndexError):
+            continue
+        bids.append({"price": float(price_c) / 100.0, "size": float(size)})
+
+    asks: list[dict[str, float]] = []
+    for entry in no_side:
+        try:
+            price_c, size = entry[0], entry[1]
+        except (TypeError, IndexError):
+            continue
+        asks.append({"price": (100.0 - float(price_c)) / 100.0, "size": float(size)})
+
+    bids.sort(key=lambda x: x["price"], reverse=True)
+    asks.sort(key=lambda x: x["price"])
+    return {"bids": bids, "asks": asks}
+
+
 def _cents_to_dollars(value: Any) -> float:
     try:
         return float(value) / 100.0
@@ -52,15 +97,10 @@ def normalize(m: dict[str, Any]) -> dict[str, Any]:
     mid = (yes_bid + yes_ask) / 2 if (yes_bid or yes_ask) else last
     price = last or mid
 
-    # Kalshi exposes `previous_yes_bid` as "before today's session", which is
-    # the closest proxy to a 24h baseline on the markets list endpoint.
     price_change_24h = price - prev if prev else 0.0
 
     ticker = m.get("ticker") or ""
     event_ticker = m.get("event_ticker") or ""
-    # Kalshi's /markets list doesn't return the event's URL slug, so we route
-    # through their search page with the ticker — that resolves to the right
-    # market regardless of the actual URL slug Kalshi is using.
     search_key = event_ticker or ticker
     url = (
         f"https://kalshi.com/markets?search={search_key}"
@@ -82,4 +122,6 @@ def normalize(m: dict[str, Any]) -> dict[str, Any]:
         "price_change_24h": round(price_change_24h, 4),
         "price_change_1h": None,
         "close_time": m.get("close_time"),
+        # Kalshi's order-book endpoint is keyed by ticker directly.
+        "book_key": ticker,
     }

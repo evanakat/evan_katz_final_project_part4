@@ -12,7 +12,7 @@ body {
 
 header { margin-bottom: 1.5rem; }
 header h1 { font-size: 1.75rem; font-weight: 700; }
-.sub { color: #8b949e; font-size: 0.95rem; margin-top: 0.25rem; }
+.sub { color: #8b949e; font-size: 0.95rem; margin-top: 0.25rem; max-width: 70ch; }
 
 .controls {
     display: flex;
@@ -60,6 +60,9 @@ header h1 { font-size: 1.75rem; font-weight: 700; }
     color: #8b949e;
     font-size: 0.85rem;
     margin-left: auto;
+    flex-basis: 100%;
+    text-align: right;
+    margin-top: 0.5rem;
 }
 
 .market {
@@ -78,7 +81,7 @@ header h1 { font-size: 1.75rem; font-weight: 700; }
     flex-wrap: wrap;
 }
 
-.platform, .signal {
+.platform, .direction, .score {
     padding: 0.15rem 0.55rem;
     border-radius: 999px;
     font-size: 0.72rem;
@@ -89,20 +92,20 @@ header h1 { font-size: 1.75rem; font-weight: 700; }
 .platform.kalshi { background: #1f3a5f; color: #79c0ff; }
 .platform.polymarket { background: #3b245c; color: #c4a7e7; }
 
-.signal.major { background: #5a1e1e; color: #ff7b72; }
-.signal.moving { background: #553d10; color: #f0b429; }
-.signal.slight { background: #243747; color: #adb8c4; }
-.signal.quiet { background: #21262d; color: #6e7681; }
+.direction.strong-up { background: #1a4d2a; color: #4ade80; }
+.direction.lean-up { background: #1f3a2a; color: #6ee7a3; }
+.direction.strong-down { background: #4d1f1f; color: #f87171; }
+.direction.lean-down { background: #3a2424; color: #fda4a4; }
+.direction.neutral { background: #2c2c34; color: #9ca3af; }
 
 .score {
     margin-left: auto;
     font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-    font-size: 0.78rem;
     color: #8b949e;
     background: #0d1117;
     border: 1px solid #30363d;
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .title {
@@ -111,14 +114,31 @@ header h1 { font-size: 1.75rem; font-weight: 700; }
     font-size: 1.02rem;
     font-weight: 500;
     display: block;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.45rem;
     line-height: 1.35;
 }
 .title:hover { text-decoration: underline; }
 
+.explanation {
+    color: #c9d1d9;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.paired {
+    color: #c4a7e7;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(196, 167, 231, 0.08);
+    border-left: 3px solid #6e4d9e;
+    border-radius: 4px;
+}
+.paired a { color: #c4a7e7; }
+
 .row {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 1rem;
     margin-bottom: 0.5rem;
 }
@@ -131,19 +151,57 @@ header h1 { font-size: 1.75rem; font-weight: 700; }
     letter-spacing: 0.05em;
 }
 .stat .value {
-    font-size: 1.05rem;
+    font-size: 1rem;
     font-weight: 600;
     margin-top: 0.15rem;
     font-variant-numeric: tabular-nums;
 }
-.stat.up .value { color: #3fb950; }
-.stat.down .value { color: #f85149; }
+.stat.up .value, .value.up { color: #3fb950; }
+.stat.down .value, .value.down { color: #f85149; }
+.value.muted { color: #6e7681; font-weight: 400; }
 
-.explanation {
+.signals-detail {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #21262d;
+}
+.signals-detail summary {
+    cursor: pointer;
+    font-size: 0.8rem;
     color: #8b949e;
-    font-size: 0.85rem;
-    margin-top: 0.25rem;
-    font-style: italic;
+    user-select: none;
+}
+.signals-detail summary:hover { color: #c9d1d9; }
+
+.signal-bars {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+}
+.signal-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 48px;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.82rem;
+}
+.signal-name { color: #8b949e; }
+.signal-bar {
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 4px;
+    height: 10px;
+    overflow: hidden;
+}
+.signal-fill {
+    background: linear-gradient(to right, #3fb950, #79c0ff);
+    height: 100%;
+}
+.signal-val {
+    text-align: right;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    color: #c9d1d9;
 }
 
 .empty {
@@ -162,8 +220,10 @@ footer {
     color: #6e7681;
     font-size: 0.8rem;
 }
+footer p { margin: 0.25rem 0; }
+footer code { background: #0d1117; padding: 0.1rem 0.3rem; border-radius: 3px; }
 
-@media (max-width: 700px) {
-    .row { grid-template-columns: repeat(2, 1fr); }
-    #status { margin-left: 0; width: 100%; }
+@media (max-width: 800px) {
+    .row { grid-template-columns: repeat(3, 1fr); }
+    #status { margin-left: 0; text-align: left; }
 }

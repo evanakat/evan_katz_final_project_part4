@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Betting Trend Spotter</title>
+    <title>Betting Trend Predictor</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <header>
-        <h1>Betting Trend Spotter</h1>
-        <p class="sub">Markets standing out on Kalshi &amp; Polymarket — ranked by 24h price movement &times; trading volume.</p>
+        <h1>Betting Trend Predictor</h1>
+        <p class="sub">Markets showing pre-move signals on Kalshi &amp; Polymarket. Ranked by combined order-book imbalance, volume acceleration, cross-platform price divergence, and momentum.</p>
     </header>
 
     <section class="controls">
@@ -22,12 +22,20 @@
             </select>
         </label>
         <label>
-            <span>Min 24h Volume ($)</span>
+            <span>Direction</span>
+            <select id="direction">
+                <option value="all">Any</option>
+                <option value="up">Up bias</option>
+                <option value="down">Down bias</option>
+            </select>
+        </label>
+        <label>
+            <span>Min 24h Vol ($)</span>
             <input type="number" id="min_vol" value="1000" step="1000" min="0">
         </label>
         <label>
-            <span>Min 24h Move (%)</span>
-            <input type="number" id="min_move" value="2" step="1" min="0" max="100">
+            <span>Min Pre-Move Score</span>
+            <input type="number" id="min_score" value="0.10" step="0.05" min="0" max="1">
         </label>
         <label>
             <span>Show</span>
@@ -44,7 +52,8 @@
     <main id="markets"></main>
 
     <footer>
-        <p>Data refreshes from each platform every minute. A high "standout score" means a sizeable price move with real volume behind it — worth a closer look, not investment advice.</p>
+        <p>Pre-move signals are heuristic, not a trained model. Snapshots are being logged to <code>snapshots.db</code> with the same feature vector — once enough data accumulates, see <code>ml/README.md</code> to train a classifier.</p>
+        <p>Not investment advice. Probabilities, not certainties.</p>
     </footer>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
