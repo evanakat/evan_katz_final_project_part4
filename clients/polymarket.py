@@ -28,6 +28,10 @@ async def fetch_markets(limit: int = 500) -> list[dict[str, Any]]:
                 "offset": offset,
                 "order": "volume24hr",
                 "ascending": "false",
+                # Ensures each market includes its parent event(s) so we can
+                # build a working polymarket.com/event/{slug} URL even for
+                # multi-outcome contests.
+                "include_events": "true",
             }
             resp = await client.get(f"{POLY_BASE}/markets", params=params)
             resp.raise_for_status()
@@ -80,7 +84,19 @@ def normalize(m: dict[str, Any]) -> dict[str, Any]:
     if not yes_price:
         yes_price = _as_float(m.get("lastTradePrice"))
 
-    slug = m.get("slug") or ""
+    # Polymarket's canonical URL is /event/{event-slug}. For binary markets the
+    # market slug equals the event slug, but for multi-outcome markets each
+    # candidate is its own market with a distinct slug and only the parent
+    # event slug actually resolves. Prefer the parent event's slug when the
+    # API includes it.
+    event_slug = ""
+    events = m.get("events")
+    if isinstance(events, list) and events:
+        first = events[0]
+        if isinstance(first, dict):
+            event_slug = first.get("slug") or ""
+    market_slug = m.get("slug") or ""
+    slug = event_slug or market_slug
     url = f"https://polymarket.com/event/{slug}" if slug else "https://polymarket.com/"
 
     return {

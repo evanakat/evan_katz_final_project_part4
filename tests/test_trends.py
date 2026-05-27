@@ -102,7 +102,7 @@ class KalshiNormalizeTests(unittest.TestCase):
         self.assertAlmostEqual(out["yes_bid"], 0.55)
         self.assertAlmostEqual(out["price_change_24h"], 0.08)
         self.assertAlmostEqual(out["volume_24h"], 12_500.0)
-        self.assertIn("kalshi.com/markets/pres-2028/pres-2028-dem", out["url"])
+        self.assertIn("kalshi.com/markets?search=PRES-2028", out["url"])
 
     def test_handles_missing_fields(self):
         out = kalshi.normalize({"ticker": "X"})
@@ -135,6 +135,21 @@ class PolymarketNormalizeTests(unittest.TestCase):
         self.assertAlmostEqual(out["price_change_1h"], 0.03)
         self.assertAlmostEqual(out["volume_24h"], 150000.50)
         self.assertEqual(out["url"], "https://polymarket.com/event/will-it-rain")
+
+    def test_prefers_event_slug_over_market_slug(self):
+        raw = {
+            "id": "x",
+            "question": "Who wins the election?",
+            "slug": "kamala-wins-2028",
+            "events": [{"slug": "us-presidential-election-2028"}],
+            "outcomes": ["Yes", "No"],
+            "outcomePrices": ["0.20", "0.80"],
+        }
+        out = polymarket.normalize(raw)
+        self.assertEqual(
+            out["url"],
+            "https://polymarket.com/event/us-presidential-election-2028",
+        )
 
     def test_handles_already_parsed_outcomes(self):
         raw = {

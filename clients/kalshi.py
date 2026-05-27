@@ -58,10 +58,14 @@ def normalize(m: dict[str, Any]) -> dict[str, Any]:
 
     ticker = m.get("ticker") or ""
     event_ticker = m.get("event_ticker") or ""
+    # Kalshi's /markets list doesn't return the event's URL slug, so we route
+    # through their search page with the ticker — that resolves to the right
+    # market regardless of the actual URL slug Kalshi is using.
+    search_key = event_ticker or ticker
     url = (
-        f"https://kalshi.com/markets/{event_ticker.lower()}/{ticker.lower()}"
-        if event_ticker
-        else f"https://kalshi.com/markets/{ticker.lower()}"
+        f"https://kalshi.com/markets?search={search_key}"
+        if search_key
+        else "https://kalshi.com/markets"
     )
 
     return {
